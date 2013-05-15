@@ -1,19 +1,19 @@
 /*
   Fuzzy Time +
   Inspired by Fuzzy Time
-  With Date, 24H display and Week #
+  With Date, 24H display and Day of the Year
   Hour background inverts depending on AM or PM
  */
 
 #include "pebble_os.h"
 #include "pebble_app.h"
 #include "pebble_fonts.h"
-#include "english_time.h"
+#include "danish_time.h"
 
 #define MY_UUID { 0x25, 0x7A, 0x25, 0xC6, 0x3F, 0xE2, 0x44, 0xD8, 0xA2, 0x35, 0xC2, 0x07, 0x15, 0x7C, 0xF1, 0x41 }
 PBL_APP_INFO(MY_UUID,
              "DK Fuzzy Time +", "David Peters",
-             1, 2, /* App version */
+             2, 0, /* App version */
              RESOURCE_ID_IMAGE_MENU_ICON,
              APP_INFO_WATCH_FACE);
 #define ANIMATION_DURATION 800
@@ -47,62 +47,13 @@ static char str_topbar[LINE_BUFFER_SIZE];
 static char str_bottombar[LINE_BUFFER_SIZE];
 static bool busy_animating_in = false;
 static bool busy_animating_out = false;
-const int line1_y = 18;
-const int line2_y = 60;
-const int line3_y = 102;
+const int line1_y = 22;
+const int line2_y = 58;
+const int line3_y = 98;
 
-static const char* const MONTHS[] = {
-  "januar",
-  "februar",
-  "marts",
-  "april",
-  "maj",
-  "juni",
-  "juli",
-  "august",
-  "september",
-  "oktober",
-  "november",
-  "december"
-};
-static const char* const DAYS[] = {
-  "søndag",
-  "mandag",
-  "tirsdag",
-  "onsdag",
-  "torsdag",
-  "fredag",
-  "lørdag"
-};
-
-char *itoa(int num)
-{
-	static char buff[20] = {};
-	int i = 0, temp_num = num, length = 0;
-	char *string = buff;
-	
-	if(num >= 0) {
-		// count how many characters in the number
-		while(temp_num) {
-			temp_num /= 10;
-			length++;
-		}
-		
-		// assign the number to the buffer starting at the end of the 
-		// number and going to the begining since we are doing the
-		// integer to character conversion on the last number in the
-		// sequence
-		for(i = 0; i < length; i++) {
-		 	buff[(length-1)-i] = '0' + (num % 10);
-			num /= 10;
-		}
-		buff[i] = '\0'; // can't forget the null byte to properly end our string
-	}
-	else
-		return "Unsupported Number";
-	
-	return string;
-}
+GFont text_font;
+GFont text_font_light;
+GFont bar_font;
 
 void animationInStoppedHandler(struct Animation *animation, bool finished, void *context) {
   busy_animating_in = false;
@@ -141,21 +92,27 @@ void set_line2_am(void) {
   if(rect.origin.x == 0) {
     text_layer_set_text_color(&line2.layer[1], GColorBlack);
     text_layer_set_background_color(&line2.layer[1], GColorWhite);  
-    text_layer_set_font(&line2.layer[1], fonts_get_system_font(FONT_KEY_GOTHAM_42_BOLD));
+    text_layer_set_font(&line2.layer[1], text_font);
   }
   else {
     text_layer_set_text_color(&line2.layer[0], GColorBlack);
     text_layer_set_background_color(&line2.layer[0], GColorWhite);  
-    text_layer_set_font(&line2.layer[0], fonts_get_system_font(FONT_KEY_GOTHAM_42_BOLD));
+    text_layer_set_font(&line2.layer[0], text_font);
   }
 }
 
 void set_line2_pm(void) {
   GRect rect = layer_get_frame(&line2.layer[0].layer);
   if(rect.origin.x == 0) {
-    text_layer_set_font(&line2.layer[1], fonts_get_system_font(FONT_KEY_GOTHAM_42_BOLD));  }
+    //text_layer_set_text_color(&line2.layer[1], GColorWhite);
+    //text_layer_set_background_color(&line2.layer[1], GColorClear);  
+    text_layer_set_font(&line2.layer[1], text_font);
+  }
   else {
-    text_layer_set_font(&line2.layer[0], fonts_get_system_font(FONT_KEY_GOTHAM_42_BOLD));  }
+    //text_layer_set_text_color(&line2.layer[1], GColorWhite);
+    //text_layer_set_background_color(&line2.layer[1], GColorClear);  
+    text_layer_set_font(&line2.layer[0], text_font);  
+  }
 }
 
 void reset_line2(void) {
@@ -163,12 +120,12 @@ void reset_line2(void) {
 //  if(rect.origin.x == 0) {
     text_layer_set_text_color(&line2.layer[1], GColorWhite);
     text_layer_set_background_color(&line2.layer[1], GColorBlack);  
-    text_layer_set_font(&line2.layer[1], fonts_get_system_font(FONT_KEY_GOTHAM_42_LIGHT));
+    text_layer_set_font(&line2.layer[1], text_font_light);
 //  }
 //  else {
     text_layer_set_text_color(&line2.layer[0], GColorWhite);
     text_layer_set_background_color(&line2.layer[0], GColorBlack);  
-    text_layer_set_font(&line2.layer[0], fonts_get_system_font(FONT_KEY_GOTHAM_42_LIGHT));
+    text_layer_set_font(&line2.layer[0], text_font_light);
 //  }  
 }
 
@@ -223,21 +180,13 @@ void updateLayer(TextLine *animating_line, int line) {
 void update_watch(PblTm* t) {
   //Let's get the new time and date
   fuzzy_time(t->tm_hour, t->tm_min, new_time.line1, new_time.line2, new_time.line3);
-  //string_format_time(str_topbar, sizeof(str_topbar), "%A | %e %b", t);
-	strcpy(str_topbar,"");
-	strcat(str_topbar,DAYS[t->tm_wday]);
-	strcat(str_topbar," | ");
-	strcat(str_topbar,itoa(t->tm_mday));
-	strcat(str_topbar,". ");	
-	strcat(str_topbar,MONTHS[t->tm_mon]);
-  string_format_time(str_bottombar, sizeof(str_bottombar), " %H:%M | uge %V", t);
+  status_bar(t,str_topbar,str_bottombar);
   
   //Let's update the top and bottom bar anyway - **to optimize later to only update top bar every new day.
   text_layer_set_text(&topbarLayer, str_topbar);
   text_layer_set_text(&bottombarLayer, str_bottombar);
   
   if(t->tm_min == 0){
-    //vibes_short_pulse();
     if(t->tm_hour >= 12){
       set_line2_pm();
     }
@@ -249,7 +198,7 @@ void update_watch(PblTm* t) {
   if(t->tm_min > 1){
     reset_line2();
   }
-
+    
   if(t->tm_hour >= 12){
     set_pm_style();
   }
@@ -273,15 +222,10 @@ void update_watch(PblTm* t) {
 
 void init_watch(PblTm* t) {
   fuzzy_time(t->tm_hour, t->tm_min, new_time.line1, new_time.line2, new_time.line3);
-  //string_format_time(str_topbar, sizeof(str_topbar), "%A | %e %b", t);
-	strcpy(str_topbar,"");
-	strcat(str_topbar,DAYS[t->tm_wday]);
-	strcat(str_topbar," | ");
-	strcat(str_topbar,itoa(t->tm_mday));
-	strcat(str_topbar,". ");	
-	strcat(str_topbar,MONTHS[t->tm_mon]);
-		
-  string_format_time(str_bottombar, sizeof(str_bottombar), " %H:%M | uge %W", t);
+  status_bar(t,str_topbar,str_bottombar);
+	//string_format_time(str_bottombar, sizeof(str_bottombar), " %H%M | uge %V", t);
+	//	string_format_time(str_topbar, sizeof(str_topbar), "%A | %e %b", t);
+	//  string_format_time(str_bottombar, sizeof(str_bottombar), " %H%M:%S | Day %j", t);
   
   text_layer_set_text(&topbarLayer, str_topbar);
   text_layer_set_text(&bottombarLayer, str_bottombar);
@@ -291,15 +235,20 @@ void init_watch(PblTm* t) {
   strcpy(cur_time.line3, new_time.line3);
 
   if(t->tm_min == 0){
-    if(t->tm_hour > 12){
-      set_line2_pm();
+    if(t->tm_hour >= 12){
+      text_layer_set_font(&line2.layer[0], text_font);
     }
     else {
-      set_line2_pm();
+      text_layer_set_text_color(&line2.layer[0], GColorBlack);
+      text_layer_set_background_color(&line2.layer[0], GColorWhite);  
+      text_layer_set_font(&line2.layer[0], text_font);
+      text_layer_set_text_color(&line2.layer[1], GColorWhite);
+      text_layer_set_background_color(&line2.layer[1], GColorBlack);  
+      text_layer_set_font(&line2.layer[1], text_font_light);
     }
   }
   
-  if(t->tm_hour > 12){
+  if(t->tm_hour >= 12){
     set_pm_style();
   }
   else {
@@ -320,62 +269,64 @@ void handle_init_app(AppContextRef app_ctx) {
   window_stack_push(&window, true);
   window_set_background_color(&window, GColorBlack);
 
+  resource_init_current_app(&APP_RESOURCES);
+
   // Init the text layers used to show the time
+
+  // Set the fonts
+  text_font = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_TWCENMT_36_BOLD));
+  text_font_light = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_TWCENMT_39));
+  bar_font = fonts_get_system_font(FONT_KEY_GOTHIC_14);
   
   // line1
-  text_layer_init(&line1.layer[0], GRect(0, line1_y, 144, 50));
+  text_layer_init(&line1.layer[0], GRect(0, line1_y, 144, 42));
   text_layer_set_text_color(&line1.layer[0], GColorWhite);
-  text_layer_set_background_color(&line1.layer[0], GColorClear);
-  text_layer_set_font(&line1.layer[0], fonts_get_system_font(FONT_KEY_GOTHAM_42_LIGHT));
+  text_layer_set_background_color(&line1.layer[0], GColorBlack);
+  text_layer_set_font(&line1.layer[0], text_font_light);
   text_layer_set_text_alignment(&line1.layer[0], GTextAlignmentLeft);
   
-  text_layer_init(&line1.layer[1], GRect(144, line1_y, 144, 50));
+  text_layer_init(&line1.layer[1], GRect(144, line1_y, 144, 42));
   text_layer_set_text_color(&line1.layer[1], GColorWhite);
-  text_layer_set_background_color(&line1.layer[1], GColorClear);
-  text_layer_set_font(&line1.layer[1], fonts_get_system_font(FONT_KEY_GOTHAM_42_LIGHT));
+  text_layer_set_background_color(&line1.layer[1], GColorBlack);
+  text_layer_set_font(&line1.layer[1], text_font_light);
   text_layer_set_text_alignment(&line1.layer[1], GTextAlignmentLeft);
 
   // line2
-  text_layer_init(&line2.layer[0], GRect(0, line2_y, 144, 50));
+  text_layer_init(&line2.layer[0], GRect(0, line2_y, 144, 42));
   text_layer_set_text_color(&line2.layer[0], GColorWhite);
   text_layer_set_background_color(&line2.layer[0], GColorBlack);
-  text_layer_set_font(&line2.layer[0], fonts_get_system_font(FONT_KEY_GOTHAM_42_LIGHT));
+  text_layer_set_font(&line2.layer[0], text_font_light);
   text_layer_set_text_alignment(&line2.layer[0], GTextAlignmentLeft);
 
-  text_layer_init(&line2.layer[1], GRect(144, line2_y, 144, 50));
+  text_layer_init(&line2.layer[1], GRect(144, line2_y, 144, 42));
   text_layer_set_text_color(&line2.layer[1], GColorWhite);
   text_layer_set_background_color(&line2.layer[1], GColorBlack);
-  text_layer_set_font(&line2.layer[1], fonts_get_system_font(FONT_KEY_GOTHAM_42_LIGHT));
+  text_layer_set_font(&line2.layer[1], text_font_light);
   text_layer_set_text_alignment(&line2.layer[1], GTextAlignmentLeft);
   
   // line3
-  text_layer_init(&line3.layer[0], GRect(0, line3_y, 144, 50));
-  //text_layer_set_text_color(&line3.layer[0], GColorWhite);
-  //text_layer_set_background_color(&line3.layer[0], GColorClear);
-  text_layer_set_font(&line3.layer[0], fonts_get_system_font(FONT_KEY_GOTHAM_42_BOLD));
+  text_layer_init(&line3.layer[0], GRect(0, line3_y, 144, 52));
+  text_layer_set_font(&line3.layer[0], text_font);
   text_layer_set_text_alignment(&line3.layer[0], GTextAlignmentLeft);
 
-  text_layer_init(&line3.layer[1], GRect(144, line3_y, 144, 50));
-  //text_layer_set_text_color(&line3.layer[1], GColorWhite);
-  //text_layer_set_background_color(&line3.layer[1], GColorClear);
-  text_layer_set_font(&line3.layer[1], fonts_get_system_font(FONT_KEY_GOTHAM_42_BOLD));
+  text_layer_init(&line3.layer[1], GRect(144, line3_y, 144, 52));
+  text_layer_set_font(&line3.layer[1], text_font);
   text_layer_set_text_alignment(&line3.layer[1], GTextAlignmentLeft);
 
-  //text_layer_init(&line3_bg, GRect(144, line3_y, 144, 48));
-  //text_layer_set_background_color(&line3_bg, GColorWhite);
+  text_layer_init(&line3_bg, GRect(144, line3_y, 144, 52));
 
   // date
   text_layer_init(&topbarLayer, GRect(0, 0, 144, 18));
   text_layer_set_text_color(&topbarLayer, GColorWhite);
   text_layer_set_background_color(&topbarLayer, GColorBlack);
-  text_layer_set_font(&topbarLayer, fonts_get_system_font(FONT_KEY_GOTHIC_14));
+  text_layer_set_font(&topbarLayer, bar_font);
   text_layer_set_text_alignment(&topbarLayer, GTextAlignmentCenter);
 
   // day24week
   text_layer_init(&bottombarLayer, GRect(0, 150, 144, 18));
   text_layer_set_text_color(&bottombarLayer, GColorWhite);
   text_layer_set_background_color(&bottombarLayer, GColorBlack);
-  text_layer_set_font(&bottombarLayer, fonts_get_system_font(FONT_KEY_GOTHIC_14));
+  text_layer_set_font(&bottombarLayer, bar_font);
   text_layer_set_text_alignment(&bottombarLayer, GTextAlignmentCenter);
 
   // Ensures time is displayed immediately (will break if NULL tick event accessed).
