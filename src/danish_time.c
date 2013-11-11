@@ -50,7 +50,7 @@ static const char* const ONETEENS[] = {
 
 static const char* const TWENS[] = {
   "tyve",
-  "treddive",
+  "tredive",
   "fyrre",
   "halvtreds",
 };
@@ -136,7 +136,7 @@ void fuzzy_time(int hours, int minutes, char* line1, char* line2, char* line3) {
     strcat(line2,STR_ALMOST);
   }
 
-  if(minutes>23) {
+  if(minutes >= 23) {
 		hours+=1;
   }
   if (hours == 24) hours = 0;
@@ -164,12 +164,13 @@ void fuzzy_time(int hours, int minutes, char* line1, char* line2, char* line3) {
 		strcat(line2, STR_HALF);
 	}
 	else if(minutes >= 33 && minutes<37) {
-		strcat(line2, "o ");
+		strcat(line2, STR_PAST);
+		strcat(line2, " ");
 		strcat(line2, STR_HALF);
 	}
     else if (minutes >35 && minutes<58) { //after half     
 	 	strcat(line2,STR_TO); 
-	}  
+	}
   }
 	  
     if(hours == 0 && minutes>0) {
